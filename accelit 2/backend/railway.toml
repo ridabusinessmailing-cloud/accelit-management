@@ -1,0 +1,15 @@
+# railway.toml — Backend deployment config for Railway.app
+# Place this file at: backend/railway.toml
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npx prisma generate && npm run build"
+
+[deploy]
+startCommand = "npm run start"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[environments.production.variables]
+NODE_ENV = "production"
+PORT = "3001"

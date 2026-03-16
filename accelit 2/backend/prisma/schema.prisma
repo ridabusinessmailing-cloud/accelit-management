@@ -1,0 +1,161 @@
+// =============================================================
+// prisma/schema.prisma
+// Accelit Management Platform
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ─────────────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  team
+}
+
+enum TaskType {
+  creative_video
+  creative_image
+  landing_page
+  research
+  other
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+}
+
+enum TaskVisibility {
+  team
+  admin_only
+}
+
+enum AssetType {
+  creative_video
+  creative_image
+  landing_page
+}
+
+enum ProductStatus {
+  active
+  paused
+  archived
+}
+
+// ── Models ────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(uuid())
+  name       String   @db.VarChar(100)
+  email      String   @unique @db.VarChar(255)
+  password   String   // bcrypt hash
+  role       UserRole @default(team)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  createdProducts  Product[]     @relation("ProductCreator")
+  assignedTasks    Task[]        @relation("TaskAssignee")
+  createdTasks     Task[]        @relation("TaskCreator")
+  createdAssets    MediaAsset[]
+  createdLPs       LandingPage[]
+
+  @@map("users")
+}
+
+model Product {
+  id             String        @id @default(uuid())
+  name           String        @db.VarChar(200)
+  description    String?
+  adAccounts     String?       @map("ad_accounts") @db.VarChar(200)
+  monthlyBudget  String?       @map("monthly_budget") @db.VarChar(50)
+  status         ProductStatus @default(active)
+  createdBy      String        @map("created_by")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  creator      User          @relation("ProductCreator", fields: [createdBy], references: [id])
+  tasks        Task[]
+  assets       MediaAsset[]
+  landingPages LandingPage[]
+
+  @@index([createdBy])
+  @@index([status])
+  @@map("products")
+}
+
+model Task {
+  id           String         @id @default(uuid())
+  title        String         @db.VarChar(255)
+  description  String?
+  assignedTo   String         @map("assigned_to")
+  createdBy    String         @map("created_by")
+  productId    String?        @map("product_id")
+  type         TaskType
+  status       TaskStatus     @default(todo)
+  assetLink    String?        @map("asset_link")
+  visibility   TaskVisibility @default(team)
+  dueDate      DateTime       @map("due_date") @db.Date
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  // Relations
+  assignee     User        @relation("TaskAssignee", fields: [assignedTo], references: [id])
+  creator      User        @relation("TaskCreator", fields: [createdBy], references: [id])
+  product      Product?    @relation(fields: [productId], references: [id])
+  asset        MediaAsset?
+  landingPage  LandingPage?
+
+  @@index([assignedTo])
+  @@index([productId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([visibility])
+  @@index([status, dueDate])
+  @@map("tasks")
+}
+
+model MediaAsset {
+  id             String    @id @default(uuid())
+  productId      String    @map("product_id")
+  name           String    @db.VarChar(255)
+  type           AssetType
+  link           String
+  createdBy      String    @map("created_by")
+  sourceTaskId   String?   @unique @map("source_task_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  product    Product  @relation(fields: [productId], references: [id])
+  creator    User     @relation(fields: [createdBy], references: [id])
+  sourceTask Task?    @relation(fields: [sourceTaskId], references: [id])
+
+  @@index([productId])
+  @@index([createdBy])
+  @@map("media_assets")
+}
+
+model LandingPage {
+  id             String   @id @default(uuid())
+  productId      String   @map("product_id")
+  name           String   @db.VarChar(255)
+  url            String
+  sourceTaskId   String?  @unique @map("source_task_id")
+  createdBy      String   @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  product    Product  @relation(fields: [productId], references: [id])
+  creator    User     @relation(fields: [createdBy], references: [id])
+  sourceTask Task?    @relation(fields: [sourceTaskId], references: [id])
+
+  @@index([productId])
+  @@index([createdBy])
+  @@map("landing_pages")
+}
